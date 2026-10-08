@@ -208,6 +208,7 @@ class ForzaApp(ctk.CTk):
         self._load_state()
         self._build_ui()
         self._show_splash_overlay()
+        self.bind("<Map>", lambda e: self._on_rdp_reconnect() if self.state() == 'normal' else None)
 
     # ══════════════════════════════════════════════════
     # SPLASH — Neon Cyber Animasyonu
@@ -259,6 +260,7 @@ class ForzaApp(ctk.CTk):
                 self._poll()
                 threading.Thread(target=self._watchdog, daemon=True).start()
                 self.protocol("WM_DELETE_WINDOW", self._on_close)
+                self._setup_rdp_monitor()
 
         self.after(50, _anim)
 
@@ -1154,6 +1156,142 @@ class ForzaApp(ctk.CTk):
             self.status_dot.configure(text="●  DURDURULDU", text_color=C.WARN)
         else:
             self.status_dot.configure(text="●  TAMAMLANDI", text_color=C.OK)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# RDP OTURUM İZLEYİCİ — VDS'den çıkınca program durmaz
+# ═══════════════════════════════════════════════════════════════════════════
+def _setup_rdp_monitor(self):
+    """RDP disconnect/reconnect olaylarını izler. Ayrı thread'de çalışır."""
+    import threading
+    threading.Thread(target=self._rdp_monitor_thread, daemon=True).start()
+
+def _rdp_monitor_thread(self):
+    """
+    Win32 WTS API ile oturum durumunu 2sn'de bir kontrol eder.
+    Disconnect → pencereyi küçült (program çalışmaya devam eder)
+    Reconnect  → pencereyi geri getir
+    """
+    try:
+        import ctypes, ctypes.wintypes, time
+
+        wtsapi32  = ctypes.WinDLL("Wtsapi32.dll")
+        kernel32  = ctypes.WinDLL("kernel32.dll")
+
+        WTS_CURRENT_SERVER  = ctypes.c_void_p(0)
+        WTSConnectState     = 8
+        # Bağlantı durumu sabitleri
+        WTSActive           = 0   # Aktif RDP oturumu
+        WTSDisconnected     = 4   # Bağlantı kesildi (session hala var)
+
+        current_pid = kernel32.GetCurrentProcessId()
+
+        class WTS_SESSION_INFO(ctypes.Structure):
+            _fields_ = [
+                ("SessionId",    ctypes.c_ulong),
+                ("pWinStationName", ctypes.c_wchar_p),
+                ("State",        ctypes.c_int),
+            ]
+
+        prev_state = None
+        _disconnected_shown = False
+
+        while True:
+            try:
+                sessions_ptr  = ctypes.POINTER(WTS_SESSION_INFO)()
+                session_count = ctypes.c_ulong(0)
+
+                if wtsapi32.WTSEnumerateSessionsW(
+                    WTS_CURRENT_SERVER, 0, 1,
+                    ctypes.byref(sessions_ptr),
+                    ctypes.byref(session_count)
+                ):
+                    # Kendi session ID'sini bul
+                    own_session = None
+                    try:
+                        import win32process, win32api
+                        own_session = win32ts_get_session()
+                    except Exception:
+                        try:
+                            # Fallback: ProcessIdToSessionId
+                            _sid = ctypes.c_ulong(0)
+                            if kernel32.ProcessIdToSessionId(current_pid, ctypes.byref(_sid)):
+                                own_session = _sid.value
+                        except Exception:
+                            pass
+
+                    state = None
+                    if own_session is not None:
+                        for i in range(session_count.value):
+                            s = sessions_ptr[i]
+                            if s.SessionId == own_session:
+                                state = s.State
+                                break
+
+                    wtsapi32.WTSFreeMemory(sessions_ptr)
+
+                    if state is not None and state != prev_state:
+                        if state == WTSDisconnected and not _disconnected_shown:
+                            # VDS bağlantısı kesildi → minimize et
+                            _disconnected_shown = True
+                            self.after(0, self._on_rdp_disconnect)
+                        elif state == WTSActive and prev_state == WTSDisconnected:
+                            # VDS'e tekrar bağlandı → pencereyi geri getir
+                            _disconnected_shown = False
+                            self.after(0, self._on_rdp_reconnect)
+                        prev_state = state
+
+            except Exception:
+                pass
+
+            time.sleep(2)
+
+    except Exception:
+        pass  # RDP izleme başarısız olsa da program çalışmaya devam eder
+
+def win32ts_get_session():
+    """Mevcut process'in session ID'sini döndür."""
+    import ctypes
+    kernel32 = ctypes.WinDLL("kernel32.dll")
+    pid = kernel32.GetCurrentProcessId()
+    sid = ctypes.c_ulong(0)
+    kernel32.ProcessIdToSessionId(pid, ctypes.byref(sid))
+    return sid.value
+
+def _on_rdp_disconnect(self):
+    """VDS bağlantısı kesilince çağrılır — pencereyi minimize et."""
+    try:
+        import win32gui, win32con
+        hwnd = self.winfo_id()
+        win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+    except Exception:
+        try:
+            self.iconify()
+        except Exception:
+            pass
+    # Log
+    if hasattr(self, 'msg_queue'):
+        self.msg_queue.put(("log", "🔌 VDS bağlantısı kesildi — program arka planda çalışmaya devam ediyor"))
+
+def _on_rdp_reconnect(self):
+    """VDS'e yeniden bağlanınca çağrılır — pencereyi geri getir."""
+    try:
+        import win32gui, win32con
+        hwnd = self.winfo_id()
+        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+        win32gui.SetForegroundWindow(hwnd)
+        self.lift()
+        self.attributes("-topmost", True)
+        self.after(500, lambda: self.attributes("-topmost", False) 
+                   if not getattr(self, '_always_top', False) else None)
+    except Exception:
+        try:
+            self.deiconify()
+            self.lift()
+        except Exception:
+            pass
+    if hasattr(self, 'msg_queue'):
+        self.msg_queue.put(("log", "✅ VDS bağlantısı yeniden kuruldu — pencere geri getirildi"))
 
     def _on_close(self):
         if self.is_running:
