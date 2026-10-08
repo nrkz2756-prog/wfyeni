@@ -31,6 +31,11 @@ hiddenimports = [
     'win32api',
     'win32clipboard',
     'pyarmor_runtime_000000',
+    'requests',
+    'urllib3',
+    'certifi',
+    'charset_normalizer',
+    'idna',
 ]
 tmp_ret = collect_all('customtkinter')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
