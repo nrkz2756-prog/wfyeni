@@ -234,10 +234,10 @@ def start_launcher():
     except Exception as e:
         log(f"HATA: Launcher başlatılamadı: {e}")
         return False
-    for _ in range(30):   # max 3sn (30 × 0.1)
-        time.sleep(0.1)   # eski: 0.15
+    for _ in range(25):   # max 2sn (25 × 0.08)
+        time.sleep(0.08)
         if find_hwnd():
-            time.sleep(0.05)  # eski: 0.15
+            time.sleep(0.04)
             log("Launcher açıldı.")
             return True
     log("HATA: Launcher penceresi açılmadı!")
@@ -577,7 +577,7 @@ def try_login(username, password):
 
     # Edit alanlarını bul — bulunamazsa tekrar dene
     fields = []
-    for _retry in range(20):  # max 0.6 sn (0.03s × 20)
+    for _retry in range(10):  # max 0.3 sn (0.03s × 10)
         try:
             fields = get_edit_fields(hwnd)
         except Exception as e:
@@ -657,56 +657,57 @@ def try_login(username, password):
     # ══════════════════════════════════════════════
     # Sonucu bekle — ESKİ HIZLI DÖNGÜ (wfes ayarları)
     # ══════════════════════════════════════════════
-    for i in range(100):  # 35×0.02 + 65×0.05 = 3.95 sn max
-        if i < 35:
-            time.sleep(0.02)
+    # ── OPTİMİZE: Adaptif bekleme + erken çıkış ──
+    # İlk 0.3 sn: 15ms aralıkla yoğun kontrol (hızlı hata tespiti)
+    # Sonrası: 30ms aralıkla normal kontrol
+    # Toplam max: ~4 sn (değişmedi) ama hatalı şifre ~0.3-0.5 sn'de yakalanır
+    _hwnd_cache = hwnd      # find_hwnd her turda çağrılmasın
+    _hwnd_miss  = 0         # pencere kaybolma sayacı
+
+    for i in range(120):
+        # Adaptif bekleme: ilk 20 tur hızlı, sonrası normal
+        if i < 20:
+            time.sleep(0.015)
         else:
-            time.sleep(0.05)
+            time.sleep(0.03)
 
-        hwnd2 = find_hwnd()
-        if not hwnd2:
-            # Pencere bulunamadı — launcher gerçekten kapandı mı?
-            # İlk kontrol: hemen tekrar bak (geçici kaybolma olabilir)
-            time.sleep(0.05)
-            hwnd2 = find_hwnd()
-            if hwnd2:
-                continue  # pencere geri geldi, devam et
-            
-            # Pencere yok — hızlı WolfTeam doğrulaması (1 kez process tarama)
-            if _is_process_running(WOLFTEAM_EXE):
-                log(f"✓ BAŞARILI GİRİŞ (doğrulandı): {username}")
-                _flush_log()
-                return True
-            
-            # WolfTeam yok — launcher process kontrol
-            if _is_process_running("NyxLauncher.exe"):
-                # Süreç çalışıyor ama pencere yok — bekle
-                time.sleep(0.2)
-                continue
-            
-            # Her ikisi de yok — başarılı giriş (oyun açılmış ve kapanmış olabilir)
-            log(f"✓ BAŞARILI GİRİŞ (launcher kapandı): {username}")
-            _flush_log()
-            return True
-
-        # Ayrı hata penceresi var mı? (hafif kontrol — her turda)
-        for title in ("Error", "Hata", "Uyarı", "Warning", "Bilgi"):
+        # ── Hata diyaloğu — her turda (FindWindow ucuz) ──
+        _err_found = False
+        for _etitle in ("Error", "Hata", "Uyarı", "Warning", "Bilgi"):
             try:
-                err = win32gui.FindWindow(None, title)
-                if err and win32gui.IsWindowVisible(err):
+                _eh = win32gui.FindWindow(None, _etitle)
+                if _eh and win32gui.IsWindowVisible(_eh):
                     log(f"✗ BAŞARISIZ (diyalog): {username}")
-                    dismiss_error_dialog(hwnd2)
+                    dismiss_error_dialog(_hwnd_cache or hwnd)
                     return False
             except Exception:
                 pass
 
-        # Launcher içinde hata metni var mı? (her 2. turda)
-        if i >= 1 and i % 2 == 0:
+        # ── Launcher metni kontrolü: ilk 20 turda her turda, sonra her 2. tur ──
+        if i < 20 or i % 2 == 0:
             try:
-                if check_login_error(hwnd2):
-                    log(f"✗ BAŞARISIZ (hata metni): {username}")
-                    dismiss_error_dialog(hwnd2)
-                    return False
+                hwnd2 = find_hwnd()
+                if hwnd2:
+                    _hwnd_cache = hwnd2
+                    _hwnd_miss  = 0
+                    if check_login_error(hwnd2):
+                        log(f"✗ BAŞARISIZ (hata metni): {username}")
+                        dismiss_error_dialog(hwnd2)
+                        return False
+                else:
+                    _hwnd_miss += 1
+                    # Pencere 2 kez üst üste kayboldu — gerçekten kapandı
+                    if _hwnd_miss >= 2:
+                        time.sleep(0.05)
+                        if _is_process_running(WOLFTEAM_EXE):
+                            log(f"✓ BAŞARILI GİRİŞ (WolfTeam açık): {username}")
+                            _flush_log()
+                            return True
+                        if not _is_process_running("NyxLauncher.exe"):
+                            log(f"✓ BAŞARILI GİRİŞ (launcher kapandı): {username}")
+                            _flush_log()
+                            return True
+                        _hwnd_miss = 0
             except Exception:
                 reset_uia()
 
