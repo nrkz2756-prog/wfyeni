@@ -799,7 +799,7 @@ class ForzaApp(ctk.CTk):
     _LOG_SHOW_KEYWORDS = (
         "✓", "✗", "BAŞLADI", "TAMAMLANDI", "HATA", "UYARI",
         "WATCHDOG", "başarılı", "BAŞARISIZ", "başlatılıyor",
-        "açıldı", "kapandı", "durduruldu", "DEVAM",
+        "açıldı", "kapandı", "durduruldu", "DEVAM", "TIMEOUT",
     )
 
     def _import_launcher(self):
@@ -911,7 +911,7 @@ class ForzaApp(ctk.CTk):
         q.put(("done",))
 
     def _safe_try_login(self, L, user, pwd, q):
-        LOGIN_TIMEOUT = 40
+        LOGIN_TIMEOUT = 25
         MAX_RETRIES = 2
         
         for attempt in range(MAX_RETRIES):
@@ -1066,7 +1066,7 @@ class ForzaApp(ctk.CTk):
                 self._handle(msg)
         except queue.Empty:
             pass
-        self.after(50, self._poll)
+        self.after(30, self._poll)
 
     def _handle(self, msg):
         kind = msg[0]
@@ -1086,8 +1086,8 @@ class ForzaApp(ctk.CTk):
         self.log_box.configure(state="normal")
         self.log_box.insert("end", f"[{ts}]  {text}\n")
         lines = int(self.log_box.index("end-1c").split(".")[0])
-        if lines > 120:
-            self.log_box.delete("1.0", f"{lines - 120}.0")
+        if lines > 200:
+            self.log_box.delete("1.0", f"{lines - 200}.0")
         self.log_box.see("end")
         self.log_box.configure(state="disabled")
 
