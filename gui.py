@@ -281,9 +281,32 @@ class ForzaApp(ctk.CTk):
     # İD ÇEKME PANELİ
     # ══════════════════════════════════════════════════
     def _build_idcekme_panel(self, parent):
-        import subprocess
+        import subprocess, tempfile, base64
 
-        # ROOT CONTAINER — aynı checker düzeni gibi 3 sütun
+        # Gömülü script verileri (base64)
+        _RUTBELI_B64 = "aW1wb3J0IHJlcXVlc3RzCmltcG9ydCB0aW1lCgpwcmludCgiIiIKRk9SWkEKIiIiKQoKQkFTRV9VUkwgPSAiaHR0cDovL3dvbGZ0ZWFta2xhbi5qb3lnYW1lLmNvbS9SYW5raW5nL0dldFJhbmtpbmciCkRBVEFfRklMRSA9ICJSw5xUQkVMxLAudHh0IgoKCmRlZiBmZXRjaF9wbGF5ZXJzX3VudGlsX2VtcHR5KHN0YXJ0X2luZGV4LCBsaW1pdCwgcmFua190eXBlPTEsIG9yZGVyX3R5cGU9MSk6CiAgICBjb3VudCA9IDAKCiAgICB0cnk6CiAgICAgICAgd2hpbGUgVHJ1ZToKICAgICAgICAgICAgcGFyYW1zID0gewogICAgICAgICAgICAgICAgIlJhbmtUeXBlIjogcmFua190eXBlLAogICAgICAgICAgICAgICAgIk9yZGVyVHlwZSI6IG9yZGVyX3R5cGUsCiAgICAgICAgICAgICAgICAiU3RhcnRJbmRleCI6IHN0YXJ0X2luZGV4CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIHJlc3BvbnNlID0gcmVxdWVzdHMuZ2V0KEJBU0VfVVJMLCBwYXJhbXM9cGFyYW1zKQogICAgICAgICAgICByZXNwb25zZS5yYWlzZV9mb3Jfc3RhdHVzKCkKCiAgICAgICAgICAgIGRhdGEgPSByZXNwb25zZS5qc29uKCkKICAgICAgICAgICAgdXNlcnMgPSBkYXRhLmdldCgiRGF0YSIsIFtdKQoKICAgICAgICAgICAgaWYgbm90IHVzZXJzOgogICAgICAgICAgICAgICAgcHJpbnQoIlZlcmkgYml0dGkuIikKICAgICAgICAgICAgICAgIGJyZWFrCgogICAgICAgICAgICBmb3IgdXNlciBpbiB1c2VyczoKCiAgICAgICAgICAgICAgICBpZiBjb3VudCA+PSBsaW1pdDoKICAgICAgICAgICAgICAgICAgICBwcmludChmIlxuVG9wbGFtIHtsaW1pdH0gSUQgw6dla2lsZGkuIikKICAgICAgICAgICAgICAgICAgICByZXR1cm4KCiAgICAgICAgICAgICAgICBhY2NvdW50ID0gdXNlci5nZXQoIkFjY291bnQiLCAiTi9BIikKCiAgICAgICAgICAgICAgICBjb3VudCArPSAxCgogICAgICAgICAgICAgICAgcHJpbnQoZiJ7Y291bnR9LiB7YWNjb3VudH0iKQoKICAgICAgICAgICAgICAgIHdpdGggb3BlbihEQVRBX0ZJTEUsICJhIiwgZW5jb2Rpbmc9InV0Zi04IikgYXMgZmlsZToKICAgICAgICAgICAgICAgICAgICBmaWxlLndyaXRlKGYie2FjY291bnR9XG4iKQoKICAgICAgICAgICAgICAgIHRpbWUuc2xlZXAoMCkKCiAgICAgICAgICAgIHN0YXJ0X2luZGV4ICs9IDEKCiAgICBleGNlcHQgcmVxdWVzdHMuZXhjZXB0aW9ucy5SZXF1ZXN0RXhjZXB0aW9uIGFzIGU6CiAgICAgICAgcHJpbnQoZiJBUEkgaXN0ZcSfaSBiYcWfYXLEsXPEsXo6IHtlfSIpCgoKZGVmIG1haW4oKToKICAgIHN0YXJ0X2luZGV4ID0gaW50KGlucHV0KCJCYcWfbGFuZ8Sxw6cgaW5kZXhpbmkgZ2lyaW46ICIpKQogICAgbGltaXQgPSBpbnQoaW5wdXQoIkthw6cgYWRldCBJRCDDp2VraWxzaW4/OiAiKSkKCiAgICBmZXRjaF9wbGF5ZXJzX3VudGlsX2VtcHR5KHN0YXJ0X2luZGV4LCBsaW1pdCkKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgbWFpbigp"
+        _NAKITLI_B64 = "aW1wb3J0IHJlcXVlc3RzCmltcG9ydCB0aW1lCgpwcmludCgiIiIKRk9SWkEKIiIiKQoKQkFTRV9VUkwgPSAiaHR0cDovL3dvbGZ0ZWFta2xhbi5qb3lnYW1lLmNvbS9SYW5raW5nL0dldFJhbmtpbmciCkRBVEFfRklMRSA9ICJOQUvEsFRMxLAudHh0IgoKCmRlZiBmZXRjaF9wbGF5ZXJzX3VudGlsX2VtcHR5KHN0YXJ0X2luZGV4LCBsaW1pdCwgcmFua190eXBlPTIsIG9yZGVyX3R5cGU9MSk6CiAgICBjb3VudCA9IDAKCiAgICB0cnk6CiAgICAgICAgd2hpbGUgVHJ1ZToKICAgICAgICAgICAgcGFyYW1zID0gewogICAgICAgICAgICAgICAgIlJhbmtUeXBlIjogcmFua190eXBlLAogICAgICAgICAgICAgICAgIk9yZGVyVHlwZSI6IG9yZGVyX3R5cGUsCiAgICAgICAgICAgICAgICAiU3RhcnRJbmRleCI6IHN0YXJ0X2luZGV4CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIHJlc3BvbnNlID0gcmVxdWVzdHMuZ2V0KEJBU0VfVVJMLCBwYXJhbXM9cGFyYW1zKQogICAgICAgICAgICByZXNwb25zZS5yYWlzZV9mb3Jfc3RhdHVzKCkKCiAgICAgICAgICAgIGRhdGEgPSByZXNwb25zZS5qc29uKCkKICAgICAgICAgICAgdXNlcnMgPSBkYXRhLmdldCgiRGF0YSIsIFtdKQoKICAgICAgICAgICAgaWYgbm90IHVzZXJzOgogICAgICAgICAgICAgICAgcHJpbnQoIlZlcmkgYml0dGkuIikKICAgICAgICAgICAgICAgIGJyZWFrCgogICAgICAgICAgICBmb3IgdXNlciBpbiB1c2VyczoKCiAgICAgICAgICAgICAgICBpZiBjb3VudCA+PSBsaW1pdDoKICAgICAgICAgICAgICAgICAgICBwcmludChmIlxuVG9wbGFtIHtsaW1pdH0gSUQgw6dla2lsZGkuIikKICAgICAgICAgICAgICAgICAgICByZXR1cm4KCiAgICAgICAgICAgICAgICBhY2NvdW50ID0gdXNlci5nZXQoIkFjY291bnQiLCAiTi9BIikKCiAgICAgICAgICAgICAgICBjb3VudCArPSAxCgogICAgICAgICAgICAgICAgcHJpbnQoZiJ7Y291bnR9LiB7YWNjb3VudH0iKQoKICAgICAgICAgICAgICAgIHdpdGggb3BlbihEQVRBX0ZJTEUsICJhIiwgZW5jb2Rpbmc9InV0Zi04IikgYXMgZmlsZToKICAgICAgICAgICAgICAgICAgICBmaWxlLndyaXRlKGYie2FjY291bnR9XG4iKQoKICAgICAgICAgICAgICAgIHRpbWUuc2xlZXAoMCkKCiAgICAgICAgICAgIHN0YXJ0X2luZGV4ICs9IDEKCiAgICBleGNlcHQgcmVxdWVzdHMuZXhjZXB0aW9ucy5SZXF1ZXN0RXhjZXB0aW9uIGFzIGU6CiAgICAgICAgcHJpbnQoZiJBUEkgaXN0ZcSfaSBiYcWfYXLEsXPEsXo6IHtlfSIpCgoKZGVmIG1haW4oKToKICAgIHN0YXJ0X2luZGV4ID0gaW50KGlucHV0KCJCYcWfbGFuZ8Sxw6cgaW5kZXhpbmkgZ2lyaW46ICIpKQogICAgbGltaXQgPSBpbnQoaW5wdXQoIkthw6cgYWRldCBJRCDDp2VraWxzaW4/OiAiKSkKCiAgICBmZXRjaF9wbGF5ZXJzX3VudGlsX2VtcHR5KHN0YXJ0X2luZGV4LCBsaW1pdCkKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgbWFpbigp"
+
+        def _run_script(b64_code, script_name):
+            try:
+                code = base64.b64decode(b64_code).decode("utf-8")
+                tmp = tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".py", prefix=script_name + "_",
+                    delete=False, encoding="utf-8"
+                )
+                tmp.write(code)
+                tmp.close()
+                if sys.platform == "win32":
+                    subprocess.Popen(
+                        f'start cmd /k python "{tmp.name}"',
+                        shell=True
+                    )
+                else:
+                    subprocess.Popen(["python3", tmp.name])
+            except Exception as e:
+                messagebox.showerror("Hata", f"{script_name} çalıştırılamadı:\n{e}")
+
+        # ROOT CONTAINER
         root_frame = ctk.CTkFrame(parent, fg_color="transparent")
         root_frame.pack(fill="both", expand=True)
         root_frame.grid_columnconfigure(0, weight=0, minsize=220)
@@ -295,73 +318,46 @@ class ForzaApp(ctk.CTk):
         sidebar.grid(row=0, column=0, sticky="nsew")
         sidebar.grid_propagate(False)
 
-        # Logo
         logo_frame = ctk.CTkFrame(sidebar, fg_color="transparent", height=60)
         logo_frame.pack(fill="x", pady=(12, 5))
         logo_frame.pack_propagate(False)
         logo_row = ctk.CTkFrame(logo_frame, fg_color="transparent")
         logo_row.pack(expand=True)
-        ctk.CTkLabel(logo_row, text="🔍", font=ctk.CTkFont(size=22)).pack(side="left", padx=(0, 5))
-        ctk.CTkLabel(logo_row, text="İD ÇEKME", font=ctk.CTkFont(FN, 16, "bold"),
+        ctk.CTkLabel(logo_row, text="\U0001f50d", font=ctk.CTkFont(size=22)).pack(side="left", padx=(0, 5))
+        ctk.CTkLabel(logo_row, text="\u0130D \u00c7EKME", font=ctk.CTkFont(FN, 16, "bold"),
                      text_color=C.ACCENT).pack(side="left")
 
         ctk.CTkFrame(sidebar, fg_color=C.BORDER, height=1).pack(fill="x", padx=15, pady=8)
-
-        ctk.CTkLabel(sidebar, text="ARAÇLAR", font=ctk.CTkFont(FN, 9, "bold"),
+        ctk.CTkLabel(sidebar, text="ARA\u00c7LAR", font=ctk.CTkFont(FN, 9, "bold"),
                      text_color=C.MUTED).pack(anchor="w", padx=15, pady=(6, 10))
 
-        def _run_script(script_name):
-            """İlgili .py dosyasını yeni bir Python terminal penceresinde açar."""
-            # Önce exe yanında ara, yoksa bir üst klasöre bak
-            script_path = os.path.join(BASE_DIR, script_name)
-            if not os.path.isfile(script_path):
-                script_path = os.path.join(os.path.dirname(BASE_DIR), script_name)
-            if not os.path.isfile(script_path):
-                messagebox.showerror("Hata", f"{script_name} bulunamadı!\nAranan yer: {script_path}")
-                return
-            try:
-                if sys.platform == "win32":
-                    subprocess.Popen(
-                        f'start cmd /k python "{script_path}"',
-                        shell=True
-                    )
-                else:
-                    subprocess.Popen(["python3", script_path])
-            except Exception as e:
-                messagebox.showerror("Hata", f"{script_name} çalıştırılamadı:\n{e}")
-
-        # RUTBELİ butonu
-        rutbeli_btn = ctk.CTkButton(
-            sidebar, text="🏆  RUTBELİ",
+        ctk.CTkButton(
+            sidebar, text="\U0001f3c6  R\u00dcTBEL\u0130",
             fg_color=C.ACCENT, hover_color=C.ACCENT_H,
             font=ctk.CTkFont(FN, 13, "bold"), height=48, corner_radius=8,
             text_color="white",
-            command=lambda: _run_script("rutbeli.py")
-        )
-        rutbeli_btn.pack(fill="x", padx=15, pady=(0, 10))
+            command=lambda: _run_script(_RUTBELI_B64, "rutbeli")
+        ).pack(fill="x", padx=15, pady=(0, 10))
 
-        # NAKİTLİ butonu
-        nakitli_btn = ctk.CTkButton(
-            sidebar, text="💰  NAKİTLİ",
+        ctk.CTkButton(
+            sidebar, text="\U0001f4b0  NAK\u0130TL\u0130",
             fg_color=C.OK_DIM, hover_color=C.OK,
             font=ctk.CTkFont(FN, 13, "bold"), height=48, corner_radius=8,
             text_color="white",
-            command=lambda: _run_script("nakitli.py")
-        )
-        nakitli_btn.pack(fill="x", padx=15, pady=(0, 6))
+            command=lambda: _run_script(_NAKITLI_B64, "nakitli")
+        ).pack(fill="x", padx=15, pady=(0, 6))
 
         ctk.CTkFrame(sidebar, fg_color=C.BORDER, height=1).pack(fill="x", padx=15, pady=12)
 
-        # Bilgi kutusu
         info_card = ctk.CTkFrame(sidebar, fg_color=C.CARD, corner_radius=8,
                                   border_width=1, border_color=C.BORDER)
         info_card.pack(fill="x", padx=12, pady=(0, 10))
-        ctk.CTkLabel(info_card, text="BİLGİ", font=ctk.CTkFont(FN, 9, "bold"),
+        ctk.CTkLabel(info_card, text="B\u0130LG\u0130", font=ctk.CTkFont(FN, 9, "bold"),
                      text_color=C.MUTED).pack(anchor="w", padx=10, pady=(8, 2))
-        ctk.CTkLabel(info_card, text="● HAZIR", font=ctk.CTkFont(FN, 12, "bold"),
+        ctk.CTkLabel(info_card, text="\u25cf HAZIR", font=ctk.CTkFont(FN, 12, "bold"),
                      text_color=C.OK).pack(anchor="w", padx=10, pady=(0, 8))
 
-        # ── SAĞ PANEL — açıklama alanı ──
+        # ── SAĞ PANEL ──
         right = ctk.CTkFrame(root_frame, fg_color="transparent")
         right.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
 
@@ -372,10 +368,10 @@ class ForzaApp(ctk.CTk):
         inner = ctk.CTkFrame(info_box, fg_color="transparent")
         inner.place(relx=0.5, rely=0.45, anchor="center")
 
-        ctk.CTkLabel(inner, text="🔍", font=ctk.CTkFont(size=52)).pack(pady=(0, 12))
-        ctk.CTkLabel(inner, text="İD ÇEKME", font=ctk.CTkFont(FN, 28, "bold"),
+        ctk.CTkLabel(inner, text="\U0001f50d", font=ctk.CTkFont(size=52)).pack(pady=(0, 12))
+        ctk.CTkLabel(inner, text="\u0130D \u00c7EKME", font=ctk.CTkFont(FN, 28, "bold"),
                      text_color=C.ACCENT).pack()
-        ctk.CTkLabel(inner, text="Bir araç seçerek işlemi başlatın",
+        ctk.CTkLabel(inner, text="Bir ara\u00e7 se\u00e7erek i\u015flemi ba\u015flat\u0131n",
                      font=ctk.CTkFont(FN, 13), text_color=C.GRAY).pack(pady=(8, 20))
 
         ctk.CTkFrame(inner, fg_color=C.BORDER, height=1, width=300).pack(pady=4)
@@ -384,22 +380,20 @@ class ForzaApp(ctk.CTk):
         btn_row.pack(pady=(16, 0))
 
         ctk.CTkButton(
-            btn_row, text="🏆  RUTBELİ",
+            btn_row, text="\U0001f3c6  R\u00dcTBEL\u0130",
             fg_color=C.ACCENT, hover_color=C.ACCENT_H,
             font=ctk.CTkFont(FN, 13, "bold"), height=46, width=160, corner_radius=10,
-            text_color="white", command=lambda: _run_script("rutbeli.py")
+            text_color="white", command=lambda: _run_script(_RUTBELI_B64, "rutbeli")
         ).pack(side="left", padx=10)
 
         ctk.CTkButton(
-            btn_row, text="💰  NAKİTLİ",
+            btn_row, text="\U0001f4b0  NAK\u0130TL\u0130",
             fg_color=C.OK_DIM, hover_color=C.OK,
             font=ctk.CTkFont(FN, 13, "bold"), height=46, width=160, corner_radius=10,
-            text_color="white", command=lambda: _run_script("nakitli.py")
+            text_color="white", command=lambda: _run_script(_NAKITLI_B64, "nakitli")
         ).pack(side="left", padx=10)
 
-    # ══════════════════════════════════════════════════
-    # CHECKER PANELİ (ORIJINAL _build_ui içeriği)
-    # ══════════════════════════════════════════════════
+
     def _build_checker_panel(self, parent):
         # ── ROOT CONTAINER ──
         root_frame = ctk.CTkFrame(parent, fg_color="transparent")
