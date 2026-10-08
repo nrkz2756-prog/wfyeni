@@ -281,32 +281,14 @@ class ForzaApp(ctk.CTk):
     # İD ÇEKME PANELİ
     # ══════════════════════════════════════════════════
     def _build_idcekme_panel(self, parent):
-        import subprocess, tempfile, base64
+        import base64 as _b64, threading, queue as _queue, io
 
-        # Gömülü script verileri (base64)
         _RUTBELI_B64 = "aW1wb3J0IHJlcXVlc3RzCmltcG9ydCB0aW1lCgpwcmludCgiIiIKRk9SWkEKIiIiKQoKQkFTRV9VUkwgPSAiaHR0cDovL3dvbGZ0ZWFta2xhbi5qb3lnYW1lLmNvbS9SYW5raW5nL0dldFJhbmtpbmciCkRBVEFfRklMRSA9ICJSw5xUQkVMxLAudHh0IgoKCmRlZiBmZXRjaF9wbGF5ZXJzX3VudGlsX2VtcHR5KHN0YXJ0X2luZGV4LCBsaW1pdCwgcmFua190eXBlPTEsIG9yZGVyX3R5cGU9MSk6CiAgICBjb3VudCA9IDAKCiAgICB0cnk6CiAgICAgICAgd2hpbGUgVHJ1ZToKICAgICAgICAgICAgcGFyYW1zID0gewogICAgICAgICAgICAgICAgIlJhbmtUeXBlIjogcmFua190eXBlLAogICAgICAgICAgICAgICAgIk9yZGVyVHlwZSI6IG9yZGVyX3R5cGUsCiAgICAgICAgICAgICAgICAiU3RhcnRJbmRleCI6IHN0YXJ0X2luZGV4CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIHJlc3BvbnNlID0gcmVxdWVzdHMuZ2V0KEJBU0VfVVJMLCBwYXJhbXM9cGFyYW1zKQogICAgICAgICAgICByZXNwb25zZS5yYWlzZV9mb3Jfc3RhdHVzKCkKCiAgICAgICAgICAgIGRhdGEgPSByZXNwb25zZS5qc29uKCkKICAgICAgICAgICAgdXNlcnMgPSBkYXRhLmdldCgiRGF0YSIsIFtdKQoKICAgICAgICAgICAgaWYgbm90IHVzZXJzOgogICAgICAgICAgICAgICAgcHJpbnQoIlZlcmkgYml0dGkuIikKICAgICAgICAgICAgICAgIGJyZWFrCgogICAgICAgICAgICBmb3IgdXNlciBpbiB1c2VyczoKCiAgICAgICAgICAgICAgICBpZiBjb3VudCA+PSBsaW1pdDoKICAgICAgICAgICAgICAgICAgICBwcmludChmIlxuVG9wbGFtIHtsaW1pdH0gSUQgw6dla2lsZGkuIikKICAgICAgICAgICAgICAgICAgICByZXR1cm4KCiAgICAgICAgICAgICAgICBhY2NvdW50ID0gdXNlci5nZXQoIkFjY291bnQiLCAiTi9BIikKCiAgICAgICAgICAgICAgICBjb3VudCArPSAxCgogICAgICAgICAgICAgICAgcHJpbnQoZiJ7Y291bnR9LiB7YWNjb3VudH0iKQoKICAgICAgICAgICAgICAgIHdpdGggb3BlbihEQVRBX0ZJTEUsICJhIiwgZW5jb2Rpbmc9InV0Zi04IikgYXMgZmlsZToKICAgICAgICAgICAgICAgICAgICBmaWxlLndyaXRlKGYie2FjY291bnR9XG4iKQoKICAgICAgICAgICAgICAgIHRpbWUuc2xlZXAoMCkKCiAgICAgICAgICAgIHN0YXJ0X2luZGV4ICs9IDEKCiAgICBleGNlcHQgcmVxdWVzdHMuZXhjZXB0aW9ucy5SZXF1ZXN0RXhjZXB0aW9uIGFzIGU6CiAgICAgICAgcHJpbnQoZiJBUEkgaXN0ZcSfaSBiYcWfYXLEsXPEsXo6IHtlfSIpCgoKZGVmIG1haW4oKToKICAgIHN0YXJ0X2luZGV4ID0gaW50KGlucHV0KCJCYcWfbGFuZ8Sxw6cgaW5kZXhpbmkgZ2lyaW46ICIpKQogICAgbGltaXQgPSBpbnQoaW5wdXQoIkthw6cgYWRldCBJRCDDp2VraWxzaW4/OiAiKSkKCiAgICBmZXRjaF9wbGF5ZXJzX3VudGlsX2VtcHR5KHN0YXJ0X2luZGV4LCBsaW1pdCkKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgbWFpbigp"
         _NAKITLI_B64 = "aW1wb3J0IHJlcXVlc3RzCmltcG9ydCB0aW1lCgpwcmludCgiIiIKRk9SWkEKIiIiKQoKQkFTRV9VUkwgPSAiaHR0cDovL3dvbGZ0ZWFta2xhbi5qb3lnYW1lLmNvbS9SYW5raW5nL0dldFJhbmtpbmciCkRBVEFfRklMRSA9ICJOQUvEsFRMxLAudHh0IgoKCmRlZiBmZXRjaF9wbGF5ZXJzX3VudGlsX2VtcHR5KHN0YXJ0X2luZGV4LCBsaW1pdCwgcmFua190eXBlPTIsIG9yZGVyX3R5cGU9MSk6CiAgICBjb3VudCA9IDAKCiAgICB0cnk6CiAgICAgICAgd2hpbGUgVHJ1ZToKICAgICAgICAgICAgcGFyYW1zID0gewogICAgICAgICAgICAgICAgIlJhbmtUeXBlIjogcmFua190eXBlLAogICAgICAgICAgICAgICAgIk9yZGVyVHlwZSI6IG9yZGVyX3R5cGUsCiAgICAgICAgICAgICAgICAiU3RhcnRJbmRleCI6IHN0YXJ0X2luZGV4CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIHJlc3BvbnNlID0gcmVxdWVzdHMuZ2V0KEJBU0VfVVJMLCBwYXJhbXM9cGFyYW1zKQogICAgICAgICAgICByZXNwb25zZS5yYWlzZV9mb3Jfc3RhdHVzKCkKCiAgICAgICAgICAgIGRhdGEgPSByZXNwb25zZS5qc29uKCkKICAgICAgICAgICAgdXNlcnMgPSBkYXRhLmdldCgiRGF0YSIsIFtdKQoKICAgICAgICAgICAgaWYgbm90IHVzZXJzOgogICAgICAgICAgICAgICAgcHJpbnQoIlZlcmkgYml0dGkuIikKICAgICAgICAgICAgICAgIGJyZWFrCgogICAgICAgICAgICBmb3IgdXNlciBpbiB1c2VyczoKCiAgICAgICAgICAgICAgICBpZiBjb3VudCA+PSBsaW1pdDoKICAgICAgICAgICAgICAgICAgICBwcmludChmIlxuVG9wbGFtIHtsaW1pdH0gSUQgw6dla2lsZGkuIikKICAgICAgICAgICAgICAgICAgICByZXR1cm4KCiAgICAgICAgICAgICAgICBhY2NvdW50ID0gdXNlci5nZXQoIkFjY291bnQiLCAiTi9BIikKCiAgICAgICAgICAgICAgICBjb3VudCArPSAxCgogICAgICAgICAgICAgICAgcHJpbnQoZiJ7Y291bnR9LiB7YWNjb3VudH0iKQoKICAgICAgICAgICAgICAgIHdpdGggb3BlbihEQVRBX0ZJTEUsICJhIiwgZW5jb2Rpbmc9InV0Zi04IikgYXMgZmlsZToKICAgICAgICAgICAgICAgICAgICBmaWxlLndyaXRlKGYie2FjY291bnR9XG4iKQoKICAgICAgICAgICAgICAgIHRpbWUuc2xlZXAoMCkKCiAgICAgICAgICAgIHN0YXJ0X2luZGV4ICs9IDEKCiAgICBleGNlcHQgcmVxdWVzdHMuZXhjZXB0aW9ucy5SZXF1ZXN0RXhjZXB0aW9uIGFzIGU6CiAgICAgICAgcHJpbnQoZiJBUEkgaXN0ZcSfaSBiYcWfYXLEsXPEsXo6IHtlfSIpCgoKZGVmIG1haW4oKToKICAgIHN0YXJ0X2luZGV4ID0gaW50KGlucHV0KCJCYcWfbGFuZ8Sxw6cgaW5kZXhpbmkgZ2lyaW46ICIpKQogICAgbGltaXQgPSBpbnQoaW5wdXQoIkthw6cgYWRldCBJRCDDp2VraWxzaW4/OiAiKSkKCiAgICBmZXRjaF9wbGF5ZXJzX3VudGlsX2VtcHR5KHN0YXJ0X2luZGV4LCBsaW1pdCkKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgbWFpbigp"
 
-        def _run_script(b64_code, script_name):
-            try:
-                code = base64.b64decode(b64_code).decode("utf-8")
-                tmp = tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".py", prefix=script_name + "_",
-                    delete=False, encoding="utf-8"
-                )
-                tmp.write(code)
-                tmp.close()
-                if sys.platform == "win32":
-                    subprocess.Popen(
-                        f'start cmd /k python "{tmp.name}"',
-                        shell=True
-                    )
-                else:
-                    subprocess.Popen(["python3", tmp.name])
-            except Exception as e:
-                messagebox.showerror("Hata", f"{script_name} çalıştırılamadı:\n{e}")
+        self._id_input_queue = _queue.Queue()
+        self._id_running = False
 
-        # ROOT CONTAINER
         root_frame = ctk.CTkFrame(parent, fg_color="transparent")
         root_frame.pack(fill="both", expand=True)
         root_frame.grid_columnconfigure(0, weight=0, minsize=220)
@@ -323,75 +305,178 @@ class ForzaApp(ctk.CTk):
         logo_frame.pack_propagate(False)
         logo_row = ctk.CTkFrame(logo_frame, fg_color="transparent")
         logo_row.pack(expand=True)
-        ctk.CTkLabel(logo_row, text="\U0001f50d", font=ctk.CTkFont(size=22)).pack(side="left", padx=(0, 5))
-        ctk.CTkLabel(logo_row, text="\u0130D \u00c7EKME", font=ctk.CTkFont(FN, 16, "bold"),
+        ctk.CTkLabel(logo_row, text="🔍", font=ctk.CTkFont(size=22)).pack(side="left", padx=(0, 5))
+        ctk.CTkLabel(logo_row, text="İD ÇEKME", font=ctk.CTkFont(FN, 16, "bold"),
                      text_color=C.ACCENT).pack(side="left")
 
         ctk.CTkFrame(sidebar, fg_color=C.BORDER, height=1).pack(fill="x", padx=15, pady=8)
-        ctk.CTkLabel(sidebar, text="ARA\u00c7LAR", font=ctk.CTkFont(FN, 9, "bold"),
+        ctk.CTkLabel(sidebar, text="ARAÇLAR", font=ctk.CTkFont(FN, 9, "bold"),
                      text_color=C.MUTED).pack(anchor="w", padx=15, pady=(6, 10))
 
-        ctk.CTkButton(
-            sidebar, text="\U0001f3c6  R\u00dcTBEL\u0130",
+        self._id_rutbeli_btn = ctk.CTkButton(
+            sidebar, text="🏆  RÜTBELİ",
             fg_color=C.ACCENT, hover_color=C.ACCENT_H,
-            font=ctk.CTkFont(FN, 13, "bold"), height=48, corner_radius=8,
-            text_color="white",
-            command=lambda: _run_script(_RUTBELI_B64, "rutbeli")
-        ).pack(fill="x", padx=15, pady=(0, 10))
+            font=ctk.CTkFont(FN, 13, "bold"), height=48, corner_radius=8, text_color="white",
+            command=lambda: self._id_run_script(_RUTBELI_B64, "RÜTBELİ")
+        )
+        self._id_rutbeli_btn.pack(fill="x", padx=15, pady=(0, 10))
+
+        self._id_nakitli_btn = ctk.CTkButton(
+            sidebar, text="💰  NAKİTLİ",
+            fg_color=C.OK_DIM, hover_color=C.OK,
+            font=ctk.CTkFont(FN, 13, "bold"), height=48, corner_radius=8, text_color="white",
+            command=lambda: self._id_run_script(_NAKITLI_B64, "NAKİTLİ")
+        )
+        self._id_nakitli_btn.pack(fill="x", padx=15, pady=(0, 6))
+
+        ctk.CTkFrame(sidebar, fg_color=C.BORDER, height=1).pack(fill="x", padx=15, pady=10)
+
+        self._id_stop_btn = ctk.CTkButton(
+            sidebar, text="⏹  DURDUR",
+            fg_color=C.STOP, hover_color=C.STOP_H,
+            font=ctk.CTkFont(FN, 12, "bold"), height=36, corner_radius=8,
+            text_color="white", state="disabled", command=self._id_stop
+        )
+        self._id_stop_btn.pack(fill="x", padx=15, pady=(0, 6))
 
         ctk.CTkButton(
-            sidebar, text="\U0001f4b0  NAK\u0130TL\u0130",
-            fg_color=C.OK_DIM, hover_color=C.OK,
-            font=ctk.CTkFont(FN, 13, "bold"), height=48, corner_radius=8,
-            text_color="white",
-            command=lambda: _run_script(_NAKITLI_B64, "nakitli")
+            sidebar, text="🗑  TEMİZLE",
+            fg_color=C.CARD, hover_color=C.CARD_H,
+            font=ctk.CTkFont(FN, 12, "bold"), height=36, corner_radius=8,
+            text_color=C.GRAY, command=self._id_clear
         ).pack(fill="x", padx=15, pady=(0, 6))
 
-        ctk.CTkFrame(sidebar, fg_color=C.BORDER, height=1).pack(fill="x", padx=15, pady=12)
+        ctk.CTkFrame(sidebar, fg_color=C.BORDER, height=1).pack(fill="x", padx=15, pady=8)
+        self._id_status_lbl = ctk.CTkLabel(sidebar, text="● HAZIR",
+                                            font=ctk.CTkFont(FN, 12, "bold"), text_color=C.OK)
+        self._id_status_lbl.pack(anchor="w", padx=15)
 
-        info_card = ctk.CTkFrame(sidebar, fg_color=C.CARD, corner_radius=8,
-                                  border_width=1, border_color=C.BORDER)
-        info_card.pack(fill="x", padx=12, pady=(0, 10))
-        ctk.CTkLabel(info_card, text="B\u0130LG\u0130", font=ctk.CTkFont(FN, 9, "bold"),
-                     text_color=C.MUTED).pack(anchor="w", padx=10, pady=(8, 2))
-        ctk.CTkLabel(info_card, text="\u25cf HAZIR", font=ctk.CTkFont(FN, 12, "bold"),
-                     text_color=C.OK).pack(anchor="w", padx=10, pady=(0, 8))
-
-        # ── SAĞ PANEL ──
+        # ── SAĞ — GÖMÜLü TERMİNAL ──
         right = ctk.CTkFrame(root_frame, fg_color="transparent")
-        right.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        right.grid(row=0, column=1, sticky="nsew", padx=6, pady=6)
 
-        info_box = ctk.CTkFrame(right, fg_color=C.CARD, corner_radius=12,
-                                 border_width=1, border_color=C.BORDER)
-        info_box.pack(fill="both", expand=True)
+        term_frame = ctk.CTkFrame(right, fg_color=C.CARD, corner_radius=10,
+                                   border_width=1, border_color=C.BORDER)
+        term_frame.pack(fill="both", expand=True)
 
-        inner = ctk.CTkFrame(info_box, fg_color="transparent")
-        inner.place(relx=0.5, rely=0.45, anchor="center")
+        hdr = ctk.CTkFrame(term_frame, fg_color="transparent", height=32)
+        hdr.pack(fill="x", padx=12, pady=(8, 0))
+        hdr.pack_propagate(False)
+        ctk.CTkLabel(hdr, text="►  TERMİNAL",
+                     font=ctk.CTkFont(FN, 11, "bold"), text_color=C.GRAY).pack(side="left")
 
-        ctk.CTkLabel(inner, text="\U0001f50d", font=ctk.CTkFont(size=52)).pack(pady=(0, 12))
-        ctk.CTkLabel(inner, text="\u0130D \u00c7EKME", font=ctk.CTkFont(FN, 28, "bold"),
-                     text_color=C.ACCENT).pack()
-        ctk.CTkLabel(inner, text="Bir ara\u00e7 se\u00e7erek i\u015flemi ba\u015flat\u0131n",
-                     font=ctk.CTkFont(FN, 13), text_color=C.GRAY).pack(pady=(8, 20))
+        self._id_term = ctk.CTkTextbox(
+            term_frame, fg_color=C.INPUT, border_color=C.BORDER, border_width=1,
+            text_color=C.OK, font=ctk.CTkFont(FM, 11), wrap="word", corner_radius=6
+        )
+        self._id_term.pack(fill="both", expand=True, padx=8, pady=(6, 4))
+        self._id_term.configure(state="disabled")
 
-        ctk.CTkFrame(inner, fg_color=C.BORDER, height=1, width=300).pack(pady=4)
+        inp_row = ctk.CTkFrame(term_frame, fg_color="transparent")
+        inp_row.pack(fill="x", padx=8, pady=(0, 8))
 
-        btn_row = ctk.CTkFrame(inner, fg_color="transparent")
-        btn_row.pack(pady=(16, 0))
+        ctk.CTkLabel(inp_row, text=">>>", font=ctk.CTkFont(FM, 12, "bold"),
+                     text_color=C.ACCENT).pack(side="left", padx=(0, 6))
+
+        self._id_entry = ctk.CTkEntry(
+            inp_row, fg_color=C.INPUT, border_color=C.ACCENT, border_width=1,
+            text_color=C.WHITE, font=ctk.CTkFont(FM, 11),
+            placeholder_text="Buraya yaz, Enter ile gönder...",
+            height=32, corner_radius=6
+        )
+        self._id_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
+        self._id_entry.bind("<Return>", self._id_send_input)
 
         ctk.CTkButton(
-            btn_row, text="\U0001f3c6  R\u00dcTBEL\u0130",
-            fg_color=C.ACCENT, hover_color=C.ACCENT_H,
-            font=ctk.CTkFont(FN, 13, "bold"), height=46, width=160, corner_radius=10,
-            text_color="white", command=lambda: _run_script(_RUTBELI_B64, "rutbeli")
-        ).pack(side="left", padx=10)
+            inp_row, text="Gönder", fg_color=C.ACCENT, hover_color=C.ACCENT_H,
+            font=ctk.CTkFont(FN, 11, "bold"), width=70, height=32, corner_radius=6,
+            command=self._id_send_input
+        ).pack(side="right")
 
-        ctk.CTkButton(
-            btn_row, text="\U0001f4b0  NAK\u0130TL\u0130",
-            fg_color=C.OK_DIM, hover_color=C.OK,
-            font=ctk.CTkFont(FN, 13, "bold"), height=46, width=160, corner_radius=10,
-            text_color="white", command=lambda: _run_script(_NAKITLI_B64, "nakitli")
-        ).pack(side="left", padx=10)
+    def _id_term_write(self, text):
+        self._id_term.configure(state="normal")
+        self._id_term.insert("end", str(text))
+        self._id_term.see("end")
+        self._id_term.configure(state="disabled")
+
+    def _id_clear(self):
+        self._id_term.configure(state="normal")
+        self._id_term.delete("1.0", "end")
+        self._id_term.configure(state="disabled")
+
+    def _id_stop(self):
+        self._id_running = False
+        self._id_input_queue.put("__STOP__")
+        self._id_status_lbl.configure(text="● DURDURULDU", text_color=C.WARN)
+        self._id_stop_btn.configure(state="disabled")
+        self._id_rutbeli_btn.configure(state="normal")
+        self._id_nakitli_btn.configure(state="normal")
+
+    def _id_send_input(self, event=None):
+        val = self._id_entry.get()
+        self._id_entry.delete(0, "end")
+        self._id_term_write(val + "\n")
+        self._id_input_queue.put(val)
+
+    def _id_run_script(self, b64_code, script_name):
+        if self._id_running:
+            return
+        import base64 as _b64, threading, io
+
+        self._id_running = True
+        self._id_status_lbl.configure(text="● " + script_name + " ÇALIŞIYOR...", text_color=C.ACCENT)
+        self._id_rutbeli_btn.configure(state="disabled")
+        self._id_nakitli_btn.configure(state="disabled")
+        self._id_stop_btn.configure(state="normal")
+        self._id_clear()
+        self._id_term_write("=== " + script_name + " BAŞLADI ===\n\n")
+
+        code = _b64.b64decode(b64_code).decode("utf-8")
+        q = self._id_input_queue
+        app_ref = self
+        sname = script_name
+
+        class _FakeStdout(io.IOBase):
+            def write(self_, txt):
+                app_ref.after(0, app_ref._id_term_write, str(txt))
+                return len(txt)
+            def flush(self_): pass
+
+        class _FakeInput:
+            def __call__(self_, prompt=""):
+                app_ref.after(0, app_ref._id_term_write, str(prompt))
+                val = q.get()
+                if val == "__STOP__":
+                    raise KeyboardInterrupt
+                return val
+
+        def _worker():
+            import builtins, sys
+            _old_input  = builtins.input
+            _old_stdout = sys.stdout
+            _old_stderr = sys.stderr
+            try:
+                builtins.input = _FakeInput()
+                sys.stdout = _FakeStdout()
+                sys.stderr = _FakeStdout()
+                exec(compile(code, "<embedded>", "exec"), {"__name__": "__main__"})
+            except KeyboardInterrupt:
+                app_ref.after(0, app_ref._id_term_write, "\n[Durduruldu]\n")
+            except Exception as ex:
+                app_ref.after(0, app_ref._id_term_write, "\n[HATA]: " + str(ex) + "\n")
+            finally:
+                builtins.input = _old_input
+                sys.stdout = _old_stdout
+                sys.stderr = _old_stderr
+                app_ref._id_running = False
+                app_ref.after(0, lambda: app_ref._id_status_lbl.configure(
+                    text="● TAMAMLANDI", text_color=C.OK))
+                app_ref.after(0, lambda: app_ref._id_stop_btn.configure(state="disabled"))
+                app_ref.after(0, lambda: app_ref._id_rutbeli_btn.configure(state="normal"))
+                app_ref.after(0, lambda: app_ref._id_nakitli_btn.configure(state="normal"))
+                app_ref.after(0, app_ref._id_term_write, "\n=== " + sname + " BİTTİ ===\n")
+
+        threading.Thread(target=_worker, daemon=True).start()
 
 
     def _build_checker_panel(self, parent):
