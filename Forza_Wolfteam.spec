@@ -2,11 +2,11 @@
 from PyInstaller.utils.hooks import collect_all
 import os
 
-# Obfuscated dosyaların dizini
-OBF_DIR = r'C:\Users\yusuf\Desktop\wfyeni\obf'
+# Proje kök dizini (spec dosyasının bulunduğu yer)
+BASE_DIR = os.path.dirname(os.path.abspath(SPEC))
+OBF_DIR  = os.path.join(BASE_DIR, 'obf')
 
 datas = [
-    # PyArmor runtime DLL — şifreleme motoru
     (os.path.join(OBF_DIR, 'pyarmor_runtime_000000'), 'pyarmor_runtime_000000'),
 ]
 binaries = []
@@ -35,10 +35,9 @@ hiddenimports = [
 tmp_ret = collect_all('customtkinter')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
-
 a = Analysis(
-    [os.path.join(OBF_DIR, 'gui.py')],
-    pathex=[OBF_DIR],
+    [os.path.join(BASE_DIR, 'gui.py')],
+    pathex=[BASE_DIR, OBF_DIR],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
@@ -55,7 +54,6 @@ a = Analysis(
     optimize=2,
 )
 
-# AES-256 bytecode şifreleme (PyInstaller katmanı)
 pyz = PYZ(a.pure, key='F0rZa_W0lfT3aM_2026!')
 
 exe = EXE(
