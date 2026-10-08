@@ -95,6 +95,46 @@ def _integrity_check():
 if not _integrity_check():
     sys.exit(0)
 
+# ═══════════════════════════════════════════════════════════════════════════
+# OTOMATİK MODÜL KURULUM — Eksik paketleri pip ile yükler
+# ═══════════════════════════════════════════════════════════════════════════
+def _auto_install_modules():
+    """Gerekli modüller eksikse CMD ekranı açıp pip ile yükler."""
+    REQUIRED = ["requests", "urllib3", "certifi", "charset_normalizer", "idna"]
+    missing = []
+    for mod in REQUIRED:
+        try:
+            __import__(mod)
+        except ImportError:
+            missing.append(mod)
+
+    if not missing:
+        return  # Hepsi yüklü, devam et
+
+    import subprocess, sys
+    pkg_str = " ".join(missing)
+    print(f"Eksik modüller tespit edildi: {pkg_str}")
+
+    if getattr(sys, "frozen", False):
+        # Frozen exe: python.exe'yi bul
+        python_cmd = "python"
+    else:
+        python_cmd = sys.executable
+
+    # CMD ekranı aç, pip ile yükle, bitince kapat
+    cmd = f'pip install {pkg_str}'
+    try:
+        proc = subprocess.Popen(
+            f'start /wait cmd /k "{cmd} && echo. && echo Kurulum tamamlandi, pencere kapanacak... && timeout /t 3 && exit"',
+            shell=True
+        )
+        proc.wait()
+    except Exception as e:
+        print(f"Otomatik kurulum başarısız: {e}")
+
+_auto_install_modules()
+
+
 # ─── BASE PATH ─────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(
     sys.executable if getattr(sys, 'frozen', False) else __file__
