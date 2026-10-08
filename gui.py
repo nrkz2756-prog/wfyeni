@@ -312,13 +312,18 @@ class ForzaApp(ctk.CTk):
 
         def _run_script(script_name):
             """İlgili .py dosyasını yeni bir Python terminal penceresinde açar."""
+            # Önce exe yanında ara, yoksa bir üst klasöre bak
             script_path = os.path.join(BASE_DIR, script_name)
+            if not os.path.isfile(script_path):
+                script_path = os.path.join(os.path.dirname(BASE_DIR), script_name)
+            if not os.path.isfile(script_path):
+                messagebox.showerror("Hata", f"{script_name} bulunamadı!\nAranan yer: {script_path}")
+                return
             try:
                 if sys.platform == "win32":
-                    # Yeni cmd penceresi aç, python ile çalıştır
                     subprocess.Popen(
-                        ["cmd", "/k", f'python "{script_path}"'],
-                        creationflags=subprocess.CREATE_NEW_CONSOLE
+                        f'start cmd /k python "{script_path}"',
+                        shell=True
                     )
                 else:
                     subprocess.Popen(["python3", script_path])
