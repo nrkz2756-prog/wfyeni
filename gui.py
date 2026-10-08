@@ -208,7 +208,6 @@ class ForzaApp(ctk.CTk):
         self._load_state()
         self._build_ui()
         self._show_splash_overlay()
-        self.bind("<Map>", lambda e: self._on_rdp_reconnect() if self.state() == 'normal' else None)
 
     # ══════════════════════════════════════════════════
     # SPLASH — Neon Cyber Animasyonu
@@ -1280,16 +1279,13 @@ def _on_rdp_reconnect(self):
         hwnd = self.winfo_id()
         win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
         win32gui.SetForegroundWindow(hwnd)
-        self.lift()
-        self.attributes("-topmost", True)
-        self.after(500, lambda: self.attributes("-topmost", False) 
-                   if not getattr(self, '_always_top', False) else None)
     except Exception:
-        try:
-            self.deiconify()
-            self.lift()
-        except Exception:
-            pass
+        pass
+    try:
+        self.deiconify()
+        self.lift()
+    except Exception:
+        pass
     if hasattr(self, 'msg_queue'):
         self.msg_queue.put(("log", "✅ VDS bağlantısı yeniden kuruldu — pencere geri getirildi"))
 
