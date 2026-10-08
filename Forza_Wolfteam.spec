@@ -59,7 +59,7 @@ a = Analysis(
     optimize=2,
 )
 
-pyz = PYZ(a.pure, key='F0rZa_W0lfT3aM_2026!')
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
@@ -71,7 +71,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
